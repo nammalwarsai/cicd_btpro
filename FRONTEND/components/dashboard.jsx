@@ -14,12 +14,24 @@ import {
   Chart as ChartJS, 
   ArcElement, 
   Tooltip, 
-  Legend 
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title
 } from 'chart.js';
-import { Pie } from 'react-chartjs-2';
+import { Pie, Bar } from 'react-chartjs-2';
 
 // Register Chart.js components
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(
+  ArcElement, 
+  Tooltip, 
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title
+);
 
 const Dashboard = () => {
   const [summaryData, setSummaryData] = useState({
@@ -159,11 +171,38 @@ const Dashboard = () => {
 
   // Prepare data for Chart.js pie chart
   const pieChartData = {
-    labels: Object.keys(summaryData.categoryExpenses || {}),
+    labels: Object.keys(summaryData.categoryExpenses || {}).length > 0 
+      ? Object.keys(summaryData.categoryExpenses) 
+      : ['No Expenses Yet'],
     datasets: [
       {
-        data: Object.values(summaryData.categoryExpenses || {}).map(value => parseFloat(value)),
-        backgroundColor: COLORS,
+        data: Object.values(summaryData.categoryExpenses || {}).length > 0
+          ? Object.values(summaryData.categoryExpenses).map(value => parseFloat(value))
+          : [100], // Default value to show empty pie chart
+        backgroundColor: Object.values(summaryData.categoryExpenses || {}).length > 0
+          ? COLORS
+          : ['#e0e0e0'], // Gray color for empty state
+        borderWidth: 1
+      }
+    ]
+  };
+
+  // Prepare data for income vs expense bar chart
+  const barChartData = {
+    labels: ['Income vs Expenses'],
+    datasets: [
+      {
+        label: 'Income',
+        data: [summaryData.totalIncome],
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Expenses',
+        data: [summaryData.totalExpense],
+        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+        borderColor: 'rgba(255, 99, 132, 1)',
         borderWidth: 1
       }
     ]
@@ -181,7 +220,40 @@ const Dashboard = () => {
           label: function(context) {
             const label = context.label || '';
             const value = context.raw || 0;
-            return `${label}: $${value.toFixed(2)}`;
+            return `${label}: ₹${value.toFixed(2)}`;
+          }
+        }
+      }
+    }
+  };
+  
+  // Bar chart options
+  const barChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Income vs Expenses'
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.dataset.label || '';
+            const value = context.raw || 0;
+            return `${label}: ₹${value.toFixed(2)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return '₹' + value;
           }
         }
       }
@@ -199,7 +271,7 @@ const Dashboard = () => {
             <Card.Body>
               <Card.Title className="text-muted">Total Income</Card.Title>
               <Card.Text className="h4">
-                ${summaryData.totalIncome.toFixed(2)}
+                ₹{summaryData.totalIncome.toFixed(2)}
               </Card.Text>
             </Card.Body>
           </Card>
@@ -210,7 +282,7 @@ const Dashboard = () => {
             <Card.Body>
               <Card.Title className="text-muted">Total Expenses</Card.Title>
               <Card.Text className="h4">
-                ${summaryData.totalExpense.toFixed(2)}
+                ₹{summaryData.totalExpense.toFixed(2)}
               </Card.Text>
             </Card.Body>
           </Card>
@@ -221,7 +293,7 @@ const Dashboard = () => {
             <Card.Body>
               <Card.Title className="text-muted">Balance</Card.Title>
               <Card.Text className={`h4 ${summaryData.balance >= 0 ? 'text-success' : 'text-danger'}`}>
-                ${summaryData.balance.toFixed(2)}
+                ₹{summaryData.balance.toFixed(2)}
               </Card.Text>
             </Card.Body>
           </Card>
@@ -244,6 +316,20 @@ const Dashboard = () => {
         <Col md={6}>
           <Card className="mb-3">
             <Card.Body>
+              <Card.Title>Income vs Expenses</Card.Title>
+              <div style={{ height: '300px' }}>
+                <Bar data={barChartData} options={barChartOptions} />
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+      
+      {/* Recent Activity */}
+      <Row className="mb-4">
+        <Col md={12}>
+          <Card className="mb-3">
+            <Card.Body>
               <Card.Title>Recent Activity</Card.Title>
               <div style={{ height: '300px', overflowY: 'auto' }}>
                 <Table striped bordered hover size="sm">
@@ -262,7 +348,7 @@ const Dashboard = () => {
                         <td>{transaction.category}</td>
                         <td>{transaction.type}</td>
                         <td className={`text-end ${transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}`}>
-                          ${transaction.amount.toFixed(2)}
+                          ₹{transaction.amount.toFixed(2)}
                         </td>
                       </tr>
                     ))}
@@ -337,7 +423,7 @@ const Dashboard = () => {
                   <td 
                     className={`text-end ${transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}`}
                   >
-                    ${transaction.amount.toFixed(2)}
+                    ₹{transaction.amount.toFixed(2)}
                   </td>
                   <td className="text-center">
                     <Button 
