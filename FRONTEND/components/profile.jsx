@@ -88,8 +88,6 @@ function Profile() {
                 <div className="col-md-6 mb-3">
                   <div className="card h-100">
                     <div className="card-body">
-                      <h5 className="card-title">Account Settings</h5>
-                      <p className="text-muted mb-4">Manage your account settings and preferences</p>
                       <button 
                         className="btn btn-danger w-100 mb-3"
                         onClick={handleLogout}
