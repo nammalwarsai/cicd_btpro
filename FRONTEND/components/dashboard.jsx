@@ -12,7 +12,6 @@ import {
 } from 'react-bootstrap';
 import { 
   Chart as ChartJS, 
-  ArcElement, 
   Tooltip, 
   Legend,
   CategoryScale,
@@ -20,11 +19,10 @@ import {
   BarElement,
   Title
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(
-  ArcElement, 
   Tooltip, 
   Legend,
   CategoryScale,
@@ -56,6 +54,10 @@ const Dashboard = () => {
     startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
+  
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
+  const [totalFilteredAmount, setTotalFilteredAmount] = useState(0);
 
   // Get user from localStorage or use default test user
   const storedUser = localStorage.getItem('user');
@@ -168,23 +170,24 @@ const Dashboard = () => {
       console.error('Error fetching transactions by date range:', error);
     }
   };
-
-  // Prepare data for Chart.js pie chart
-  const pieChartData = {
-    labels: Object.keys(summaryData.categoryExpenses || {}).length > 0 
-      ? Object.keys(summaryData.categoryExpenses) 
-      : ['No Expenses Yet'],
-    datasets: [
-      {
-        data: Object.values(summaryData.categoryExpenses || {}).length > 0
-          ? Object.values(summaryData.categoryExpenses).map(value => parseFloat(value))
-          : [100], // Default value to show empty pie chart
-        backgroundColor: Object.values(summaryData.categoryExpenses || {}).length > 0
-          ? COLORS
-          : ['#e0e0e0'], // Gray color for empty state
-        borderWidth: 1
-      }
-    ]
+  
+  const handleCategoryFilter = () => {
+    if (!categoryFilter) {
+      setFilteredExpenses([]);
+      setTotalFilteredAmount(0);
+      return;
+    }
+    
+    // Filter transactions by selected category and type EXPENSE
+    const filtered = transactions.filter(
+      transaction => transaction.category === categoryFilter && transaction.type === 'EXPENSE'
+    );
+    
+    setFilteredExpenses(filtered);
+    
+    // Calculate total amount for filtered expenses
+    const total = filtered.reduce((sum, transaction) => sum + transaction.amount, 0);
+    setTotalFilteredAmount(total);
   };
 
   // Prepare data for income vs expense bar chart
@@ -302,18 +305,7 @@ const Dashboard = () => {
       
       {/* Charts */}
       <Row className="mb-4">
-        <Col md={6}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title>Expense by Category</Card.Title>
-              <div style={{ height: '300px' }}>
-                <Pie data={pieChartData} options={chartOptions} />
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col md={6}>
+        <Col md={8} className="mx-auto">
           <Card className="mb-3">
             <Card.Body>
               <Card.Title>Income vs Expenses</Card.Title>
@@ -355,6 +347,78 @@ const Dashboard = () => {
                   </tbody>
                 </Table>
               </div>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+      
+      {/* Category Filter Section */}
+      <Row className="mb-4">
+        <Col md={12}>
+          <Card className="mb-3">
+            <Card.Body>
+              <Card.Title>Expense Category Filter</Card.Title>
+              <div className="d-flex gap-2 mb-3">
+                <Form.Group className="me-2 flex-grow-1">
+                  <Form.Label>Select Category</Form.Label>
+                  <Form.Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="">Select a category</option>
+                    {/* Get unique categories from transactions */}
+                    {[...new Set(transactions
+                      .filter(t => t.type === 'EXPENSE')
+                      .map(t => t.category))]
+                      .map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))
+                    }
+                  </Form.Select>
+                </Form.Group>
+                <div className="d-flex align-items-end">
+                  <Button 
+                    variant="outline-primary"
+                    onClick={handleCategoryFilter}
+                  >
+                    Filter
+                  </Button>
+                </div>
+              </div>
+              
+              {filteredExpenses.length > 0 && (
+                <>
+                  <h6>Total spent on {categoryFilter}: <span className="text-danger">₹{totalFilteredAmount.toFixed(2)}</span></h6>
+                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <Table striped bordered hover size="sm">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Description</th>
+                          <th className="text-end">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredExpenses.map((expense) => (
+                          <tr key={expense.id}>
+                            <td>{new Date(expense.date).toLocaleDateString()}</td>
+                            <td>{expense.description || '-'}</td>
+                            <td className="text-end text-danger">
+                              ₹{expense.amount.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                </>
+              )}
+              
+              {categoryFilter && filteredExpenses.length === 0 && (
+                <div className="alert alert-info">
+                  No expenses found for the selected category.
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>

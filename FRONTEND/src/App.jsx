@@ -44,10 +44,7 @@ const App = () => {
               <div className="container text-center">
                 <h1 className="display-4 fw-bold mb-4">Welcome to Budget Planner</h1>
                 <p className="lead mb-4">Track income and expenses, set savings goals, and gain insights into your spending patterns.</p>
-                <div className="d-flex justify-content-center gap-3 mb-4">
-                  <Link className="btn btn-primary btn-lg px-4" to="/signup">Create account</Link>
-                  <Link className="btn btn-outline-primary btn-lg px-4" to="/login">Sign in</Link>
-                </div>
+               
                 <p className="text-muted">Join thousands of users managing their finances smarter</p>
               </div>
             </div>
