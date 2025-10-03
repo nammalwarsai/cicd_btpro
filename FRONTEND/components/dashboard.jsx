@@ -1,37 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { transactionAPI } from '../src/services/transactionAPI';
-import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Button, 
-  Form, 
-  Table, 
-  Modal
-} from 'react-bootstrap';
-import { 
-  Chart as ChartJS, 
-  Tooltip, 
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import {
+  Box,
+  Container,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  IconButton,
+  Fade,
+  Grow,
+  Alert,
+  Stack,
+  Divider,
+  Avatar,
+  useTheme,
+  alpha
+} from '@mui/material';
+import {
+  TrendingUp,
+  TrendingDown,
+  AccountBalance,
+  Add,
+  Delete,
+  FilterList,
+  CalendarToday,
+  Category,
+  AttachMoney,
+  Description,
+  Assessment
+} from '@mui/icons-material';
+import { BarChart } from '@mui/x-charts/BarChart';
+import { motion } from 'framer-motion';
 
-// Register Chart.js components
-ChartJS.register(
-  Tooltip, 
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title
-);
+const MotionCard = motion(Card);
+const MotionPaper = motion(Paper);
 
 const Dashboard = () => {
+  const theme = useTheme();
   const [summaryData, setSummaryData] = useState({
     totalIncome: 0,
     totalExpense: 0,
@@ -39,7 +63,7 @@ const Dashboard = () => {
     categoryExpenses: {},
     recentTransactions: []
   });
-  
+
   const [transactions, setTransactions] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
@@ -49,22 +73,20 @@ const Dashboard = () => {
     type: 'EXPENSE',
     description: ''
   });
-  
+
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
-  
+
   const [categoryFilter, setCategoryFilter] = useState('');
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [totalFilteredAmount, setTotalFilteredAmount] = useState(0);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Get user from localStorage or use default test user
   const storedUser = localStorage.getItem('user');
   const userEmail = storedUser ? JSON.parse(storedUser).email : 'test@example.com';
-  
-  // Colors for pie chart
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
   useEffect(() => {
     fetchDashboardData();
@@ -92,24 +114,24 @@ const Dashboard = () => {
   const handleAddTransaction = async () => {
     // Validate form data
     if (!newTransaction.category) {
-      alert('Please enter a category');
+      setSuccessMessage('Please enter a category');
       return;
     }
-    
+
     if (!newTransaction.amount || isNaN(parseFloat(newTransaction.amount)) || parseFloat(newTransaction.amount) <= 0) {
-      alert('Please enter a valid amount');
+      setSuccessMessage('Please enter a valid amount');
       return;
     }
-    
+
     if (!newTransaction.date) {
-      alert('Please enter a valid date');
+      setSuccessMessage('Please enter a valid date');
       return;
     }
-    
+
     try {
       // Convert date string to proper format (yyyy-MM-dd)
       const formattedDate = new Date(newTransaction.date).toISOString().split('T')[0];
-      
+
       // Create transaction data with BigDecimal compatible amount
       const transactionData = {
         category: newTransaction.category,
@@ -118,13 +140,13 @@ const Dashboard = () => {
         type: newTransaction.type,
         description: newTransaction.description || ''
       };
-      
+
       console.log('Sending transaction data:', transactionData);
       const result = await transactionAPI.addTransaction(transactionData, userEmail);
       console.log('Transaction added successfully:', result);
-      
+
       setShowAddModal(false);
-      
+
       // Reset form
       setNewTransaction({
         category: '',
@@ -133,23 +155,25 @@ const Dashboard = () => {
         type: 'EXPENSE',
         description: ''
       });
-      
+
       // Refresh data
       fetchDashboardData();
       fetchTransactions();
-      
+
       // Show success message
-      alert('Transaction added successfully!');
+      setSuccessMessage('Transaction added successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error adding transaction:', error);
-      alert('Failed to add transaction: ' + (error.message || 'Unknown error'));
+      setSuccessMessage('Failed to add transaction: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
   const handleDeleteTransaction = async (id) => {
     try {
       await transactionAPI.deleteTransaction(id, userEmail);
-      
+
       // Refresh data
       fetchDashboardData();
       fetchTransactions();
@@ -161,8 +185,8 @@ const Dashboard = () => {
   const handleDateRangeChange = async () => {
     try {
       const data = await transactionAPI.getTransactionsByDateRange(
-        userEmail, 
-        dateRange.startDate, 
+        userEmail,
+        dateRange.startDate,
         dateRange.endDate
       );
       setTransactions(data);
@@ -170,407 +194,600 @@ const Dashboard = () => {
       console.error('Error fetching transactions by date range:', error);
     }
   };
-  
+
   const handleCategoryFilter = () => {
     if (!categoryFilter) {
       setFilteredExpenses([]);
       setTotalFilteredAmount(0);
       return;
     }
-    
+
     // Filter transactions by selected category and type EXPENSE
     const filtered = transactions.filter(
       transaction => transaction.category === categoryFilter && transaction.type === 'EXPENSE'
     );
-    
+
     setFilteredExpenses(filtered);
-    
+
     // Calculate total amount for filtered expenses
     const total = filtered.reduce((sum, transaction) => sum + transaction.amount, 0);
     setTotalFilteredAmount(total);
   };
 
-  // Prepare data for income vs expense bar chart
-  const barChartData = {
-    labels: ['Income vs Expenses'],
-    datasets: [
-      {
-        label: 'Income',
-        data: [summaryData.totalIncome],
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1
-      },
-      {
-        label: 'Expenses',
-        data: [summaryData.totalExpense],
-        backgroundColor: 'rgba(255, 99, 132, 0.6)',
-        borderColor: 'rgba(255, 99, 132, 1)',
-        borderWidth: 1
-      }
-    ]
-  };
-
-  // Chart options
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'bottom',
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const label = context.label || '';
-            const value = context.raw || 0;
-            return `${label}: ₹${value.toFixed(2)}`;
-          }
-        }
-      }
-    }
-  };
-  
-  // Bar chart options
-  const barChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Income vs Expenses'
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const label = context.dataset.label || '';
-            const value = context.raw || 0;
-            return `${label}: ₹${value.toFixed(2)}`;
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value) {
-            return '₹' + value;
-          }
-        }
-      }
-    }
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
   };
 
   return (
-    <Container className="py-4">
-      <h2 className="mb-4">Financial Dashboard</h2>
-      
-      {/* Summary Cards */}
-      <Row className="mb-4">
-        <Col md={4}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title className="text-muted">Total Income</Card.Title>
-              <Card.Text className="h4">
-                ₹{summaryData.totalIncome.toFixed(2)}
-              </Card.Text>
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col md={4}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title className="text-muted">Total Expenses</Card.Title>
-              <Card.Text className="h4">
-                ₹{summaryData.totalExpense.toFixed(2)}
-              </Card.Text>
-            </Card.Body>
-          </Card>
-        </Col>
-        
-        <Col md={4}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title className="text-muted">Balance</Card.Title>
-              <Card.Text className={`h4 ${summaryData.balance >= 0 ? 'text-success' : 'text-danger'}`}>
-                ₹{summaryData.balance.toFixed(2)}
-              </Card.Text>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-      
-      {/* Charts */}
-      <Row className="mb-4">
-        <Col md={8} className="mx-auto">
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title>Income vs Expenses</Card.Title>
-              <div style={{ height: '300px' }}>
-                <Bar data={barChartData} options={barChartOptions} />
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-      
-      {/* Recent Activity */}
-      <Row className="mb-4">
-        <Col md={12}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title>Recent Activity</Card.Title>
-              <div style={{ height: '300px', overflowY: 'auto' }}>
-                <Table striped bordered hover size="sm">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Category</th>
-                      <th>Type</th>
-                      <th className="text-end">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summaryData.recentTransactions.map((transaction) => (
-                      <tr key={transaction.id}>
-                        <td>{new Date(transaction.date).toLocaleDateString()}</td>
-                        <td>{transaction.category}</td>
-                        <td>{transaction.type}</td>
-                        <td className={`text-end ${transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}`}>
-                          ₹{transaction.amount.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-      
-      {/* Category Filter Section */}
-      <Row className="mb-4">
-        <Col md={12}>
-          <Card className="mb-3">
-            <Card.Body>
-              <Card.Title>Expense Category Filter</Card.Title>
-              <div className="d-flex gap-2 mb-3">
-                <Form.Group className="me-2 flex-grow-1">
-                  <Form.Label>Select Category</Form.Label>
-                  <Form.Select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                  >
-                    <option value="">Select a category</option>
-                    {/* Get unique categories from transactions */}
-                    {[...new Set(transactions
-                      .filter(t => t.type === 'EXPENSE')
-                      .map(t => t.category))]
-                      .map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))
-                    }
-                  </Form.Select>
-                </Form.Group>
-                <div className="d-flex align-items-end">
-                  <Button 
-                    variant="outline-primary"
-                    onClick={handleCategoryFilter}
-                  >
-                    Filter
-                  </Button>
-                </div>
-              </div>
-              
-              {filteredExpenses.length > 0 && (
-                <>
-                  <h6>Total spent on {categoryFilter}: <span className="text-danger">₹{totalFilteredAmount.toFixed(2)}</span></h6>
-                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    <Table striped bordered hover size="sm">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Description</th>
-                          <th className="text-end">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredExpenses.map((expense) => (
-                          <tr key={expense.id}>
-                            <td>{new Date(expense.date).toLocaleDateString()}</td>
-                            <td>{expense.description || '-'}</td>
-                            <td className="text-end text-danger">
-                              ₹{expense.amount.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </div>
-                </>
-              )}
-              
-              {categoryFilter && filteredExpenses.length === 0 && (
-                <div className="alert alert-info">
-                  No expenses found for the selected category.
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-      
-      {/* Transactions Section */}
-      <Card className="mb-4">
-        <Card.Body>
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-0">Transactions</h5>
-            <Button 
-              variant="primary"
-              onClick={() => setShowAddModal(true)}
+    <Box sx={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      py: 4
+    }}>
+      <Container maxWidth="xl">
+        {/* Success Message */}
+        {successMessage && (
+          <Fade in={!!successMessage}>
+            <Alert
+              severity={successMessage.includes('success') ? 'success' : 'error'}
+              sx={{ mb: 3 }}
+              onClose={() => setSuccessMessage('')}
             >
-              Add Transaction
-            </Button>
-          </div>
-          
-          {/* Date Range Filter */}
-          <div className="d-flex gap-2 mb-3">
-            <Form.Group className="me-2">
-              <Form.Label>Start Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
-              />
-            </Form.Group>
-            <Form.Group className="me-2">
-              <Form.Label>End Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
-              />
-            </Form.Group>
-            <div className="d-flex align-items-end">
-              <Button 
-                variant="outline-primary"
-                onClick={handleDateRangeChange}
+              {successMessage}
+            </Alert>
+          </Fade>
+        )}
+
+        {/* Header */}
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h3"
+            sx={{
+              color: 'white',
+              fontWeight: 700,
+              mb: 1,
+              textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            Financial Dashboard
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+            Track your income and expenses with ease
+          </Typography>
+        </Box>
+
+        {/* Summary Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
+            <MotionCard
+              initial="hidden"
+              animate="visible"
+              variants={cardVariants}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                overflow: 'visible',
+                position: 'relative'
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                      Total Income
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                      ₹{summaryData.totalIncome.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
+                    <TrendingUp sx={{ fontSize: 32 }} />
+                  </Avatar>
+                </Box>
+              </CardContent>
+            </MotionCard>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <MotionCard
+              initial="hidden"
+              animate="visible"
+              variants={cardVariants}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              sx={{
+                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                color: 'white',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                overflow: 'visible'
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                      Total Expenses
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                      ₹{summaryData.totalExpense.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
+                    <TrendingDown sx={{ fontSize: 32 }} />
+                  </Avatar>
+                </Box>
+              </CardContent>
+            </MotionCard>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <MotionCard
+              initial="hidden"
+              animate="visible"
+              variants={cardVariants}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              sx={{
+                background: summaryData.balance >= 0
+                  ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+                  : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                color: 'white',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                overflow: 'visible'
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                      Balance
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                      ₹{summaryData.balance.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
+                    <AccountBalance sx={{ fontSize: 32 }} />
+                  </Avatar>
+                </Box>
+              </CardContent>
+            </MotionCard>
+          </Grid>
+        </Grid>
+
+        {/* Charts */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} lg={8}>
+            <MotionPaper
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                background: 'rgba(255,255,255,0.95)',
+                backdropFilter: 'blur(10px)'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Assessment sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Income vs Expenses
+                </Typography>
+              </Box>
+              <Box sx={{ height: 300 }}>
+                <BarChart
+                  series={[
+                    { data: [summaryData.totalIncome], label: 'Income', color: '#667eea' },
+                    { data: [summaryData.totalExpense], label: 'Expenses', color: '#f5576c' }
+                  ]}
+                  xAxis={[{ scaleType: 'band', data: ['Overview'] }]}
+                  height={300}
+                />
+              </Box>
+            </MotionPaper>
+          </Grid>
+
+          <Grid item xs={12} lg={4}>
+            <MotionPaper
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                background: 'rgba(255,255,255,0.95)',
+                backdropFilter: 'blur(10px)',
+                height: '100%'
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                Recent Activity
+              </Typography>
+              <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
+                <Stack spacing={2}>
+                  {summaryData.recentTransactions.map((transaction, index) => (
+                    <Grow key={transaction.id} in timeout={300 + index * 100}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          bgcolor: alpha(transaction.type === 'INCOME' ? '#667eea' : '#f5576c', 0.1),
+                          borderLeft: 4,
+                          borderColor: transaction.type === 'INCOME' ? '#667eea' : '#f5576c'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {transaction.category}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={`₹${transaction.amount.toFixed(2)}`}
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              bgcolor: transaction.type === 'INCOME' ? '#667eea' : '#f5576c',
+                              color: 'white'
+                            }}
+                          />
+                        </Box>
+                      </Paper>
+                    </Grow>
+                  ))}
+                </Stack>
+              </Box>
+            </MotionPaper>
+          </Grid>
+        </Grid>
+
+        {/* Category Filter Section */}
+        <MotionPaper
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Category sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Expense Category Filter
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} md={10}>
+              <FormControl fullWidth>
+                <InputLabel>Select Category</InputLabel>
+                <Select
+                  value={categoryFilter}
+                  label="Select Category"
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <MenuItem value="">Select a category</MenuItem>
+                  {[...new Set(transactions
+                    .filter(t => t.type === 'EXPENSE')
+                    .map(t => t.category))]
+                    .map(category => (
+                      <MenuItem key={category} value={category}>{category}</MenuItem>
+                    ))
+                  }
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<FilterList />}
+                onClick={handleCategoryFilter}
+                sx={{
+                  height: 56,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+                }}
               >
                 Filter
               </Button>
-            </div>
-          </div>
-          
-          {/* Transactions Table */}
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Type</th>
-                <th className="text-end">Amount</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction) => (
-                <tr key={transaction.id}>
-                  <td>{new Date(transaction.date).toLocaleDateString()}</td>
-                  <td>{transaction.category}</td>
-                  <td>{transaction.description}</td>
-                  <td>{transaction.type}</td>
-                  <td 
-                    className={`text-end ${transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}`}
-                  >
-                    ₹{transaction.amount.toFixed(2)}
-                  </td>
-                  <td className="text-center">
-                    <Button 
-                      size="sm" 
-                      variant="danger"
-                      onClick={() => handleDeleteTransaction(transaction.id)}
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-      
-      {/* Add Transaction Modal */}
-      <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Add New Transaction</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Type</Form.Label>
-              <Form.Select
-                value={newTransaction.type}
-                onChange={(e) => setNewTransaction({...newTransaction, type: e.target.value})}
-              >
-                <option value="INCOME">Income</option>
-                <option value="EXPENSE">Expense</option>
-              </Form.Select>
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Category</Form.Label>
-              <Form.Control
-                type="text"
-                value={newTransaction.category}
-                onChange={(e) => setNewTransaction({...newTransaction, category: e.target.value})}
-              />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Amount</Form.Label>
-              <Form.Control
-                type="number"
-                value={newTransaction.amount}
-                onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
-              />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Date</Form.Label>
-              <Form.Control
+            </Grid>
+          </Grid>
+
+          {filteredExpenses.length > 0 && (
+            <Fade in>
+              <Box>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Total spent on <strong>{categoryFilter}</strong>: <strong>₹{totalFilteredAmount.toFixed(2)}</strong>
+                </Alert>
+                <TableContainer sx={{ maxHeight: 300 }}>
+                  <Table stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Date</TableCell>
+                        <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Description</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Amount</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredExpenses.map((expense) => (
+                        <TableRow key={expense.id} hover>
+                          <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                          <TableCell>{expense.description || '-'}</TableCell>
+                          <TableCell align="right" sx={{ color: '#f5576c', fontWeight: 600 }}>
+                            ₹{expense.amount.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            </Fade>
+          )}
+
+          {categoryFilter && filteredExpenses.length === 0 && (
+            <Alert severity="info">
+              No expenses found for the selected category.
+            </Alert>
+          )}
+        </MotionPaper>
+
+        {/* Transactions Section */}
+        <MotionPaper
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+          sx={{
+            p: 3,
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              All Transactions
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setShowAddModal(true)}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                '&:hover': {
+                  boxShadow: '0 6px 16px rgba(102, 126, 234, 0.6)'
+                }
+              }}
+            >
+              Add Transaction
+            </Button>
+          </Box>
+
+          {/* Date Range Filter */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} md={5}>
+              <TextField
+                fullWidth
                 type="date"
+                label="Start Date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <TextField
+                fullWidth
+                type="date"
+                label="End Date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<FilterList />}
+                onClick={handleDateRangeChange}
+                sx={{ height: 56 }}
+              >
+                Filter
+              </Button>
+            </Grid>
+          </Grid>
+
+          {/* Transactions Table */}
+          <TableContainer sx={{ maxHeight: 500 }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Description</TableCell>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Type</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Amount</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {transactions.map((transaction, index) => (
+                  <Grow key={transaction.id} in timeout={300 + index * 50}>
+                    <TableRow hover>
+                      <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={transaction.category}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>{transaction.description || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={transaction.type}
+                          size="small"
+                          color={transaction.type === 'INCOME' ? 'success' : 'error'}
+                        />
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: transaction.type === 'INCOME' ? '#667eea' : '#f5576c',
+                          fontWeight: 600
+                        }}
+                      >
+                        ₹{transaction.amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          sx={{
+                            '&:hover': {
+                              bgcolor: alpha('#f5576c', 0.1)
+                            }
+                          }}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </Grow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </MotionPaper>
+
+        {/* Add Transaction Modal */}
+        <Dialog
+          open={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            fontWeight: 600
+          }}>
+            Add New Transaction
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={newTransaction.type}
+                  label="Type"
+                  onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
+                >
+                  <MenuItem value="INCOME">Income</MenuItem>
+                  <MenuItem value="EXPENSE">Expense</MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField
+                fullWidth
+                label="Category"
+                value={newTransaction.category}
+                onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                InputProps={{
+                  startAdornment: <Category sx={{ mr: 1, color: 'action.active' }} />
+                }}
+              />
+
+              <TextField
+                fullWidth
+                type="number"
+                label="Amount"
+                value={newTransaction.amount}
+                onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                InputProps={{
+                  startAdornment: <AttachMoney sx={{ mr: 1, color: 'action.active' }} />
+                }}
+              />
+
+              <TextField
+                fullWidth
+                type="date"
+                label="Date"
                 value={newTransaction.date}
-                onChange={(e) => setNewTransaction({...newTransaction, date: e.target.value})}
+                onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />
+                }}
               />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Description"
                 value={newTransaction.description}
-                onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
+                onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                InputProps={{
+                  startAdornment: <Description sx={{ mr: 1, color: 'action.active', alignSelf: 'flex-start', mt: 1 }} />
+                }}
               />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddTransaction}>
-            Add
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </Container>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button
+              onClick={() => setShowAddModal(false)}
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddTransaction}
+              variant="contained"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                px: 4
+              }}
+            >
+              Add Transaction
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 };
 
